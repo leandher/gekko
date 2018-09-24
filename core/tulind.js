@@ -704,20 +704,6 @@ methods.sma = {
     }
 }
 
-methods.stddev = {
-    requires: ['optInTimePeriod'],
-    create: (params) => {
-        verifyParams('stddev', params);
-
-        return (data, callback) => execute(callback, {
-            indicator: tulind.indicators.stddev,
-            inputs: [data.close],
-            options: [params.optInTimePeriod],
-            results: ['result'],
-        });
-    }
-}
-
 methods.stoch = {
     requires: ['optInFastKPeriod', 'optInSlowKPeriod', 'optInSlowDPeriod'],
     create: (params) => {

@@ -736,7 +736,7 @@
       ],
       "book": "XXDGXXBT",
       "minimalOrder": {
-        "amount": "3000",
+        "amount": 0.01,
         "unit": "asset"
       },
       "pricePrecision": 8,
@@ -753,7 +753,7 @@
       ],
       "book": "XXLMXXBT",
       "minimalOrder": {
-        "amount": "30",
+        "amount": "300",
         "unit": "asset"
       },
       "pricePrecision": 8,
@@ -770,7 +770,7 @@
       ],
       "book": "XXLMZEUR",
       "minimalOrder": {
-        "amount": "30",
+        "amount": "300",
         "unit": "asset"
       },
       "pricePrecision": 6,
@@ -787,7 +787,7 @@
       ],
       "book": "XXLMZUSD",
       "minimalOrder": {
-        "amount": "30",
+        "amount": "300",
         "unit": "asset"
       },
       "pricePrecision": 6,

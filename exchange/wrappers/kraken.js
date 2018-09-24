@@ -1,9 +1,7 @@
 const Kraken = require('kraken-api');
 const moment = require('moment');
 const _ = require('lodash');
-const exchangeUtils = require('../exchangeUtils');
-const retry = exchangeUtils.retry;
-const scientificToDecimal = exchangeUtils.scientificToDecimal;
+const retry = require('../exchangeUtils').retry;
 
 const marketData = require('./kraken-markets.json');
 
@@ -25,8 +23,6 @@ const Trader = function(config) {
   });
   this.pair = this.market.book;
 
-  this.interval = 3100;
-
   this.kraken = new Kraken(
     this.key,
     this.secret,
@@ -40,23 +36,14 @@ const recoverableErrors = [
   'CONNRESET',
   'CONNREFUSED',
   'NOTFOUND',
+  'API:Rate limit exceeded',
   'Service:Unavailable',
   'Request timed out',
+  'Response code 5',
   'Empty response',
   'API:Invalid nonce',
-  'General:Temporary lockout',
-  'Response code 525',
-  'Service:Busy'
+  'General:Temporary lockout'
 ];
-
-// errors that might mean
-// the API call succeeded.
-const unknownResultErrors = [
-  'Response code 502',
-  'Response code 504',
-  'Response code 522',
-  'Response code 520',
-]
 
 const includes = (str, list) => {
   if(!_.isString(str))
@@ -65,7 +52,7 @@ const includes = (str, list) => {
   return _.some(list, item => str.includes(item));
 }
 
-Trader.prototype.handleResponse = function(funcName, callback, nonMutating, payload) {
+Trader.prototype.handleResponse = function(funcName, callback) {
   return (error, body) => {
 
     if(!error && !body) {
@@ -79,96 +66,7 @@ Trader.prototype.handleResponse = function(funcName, callback, nonMutating, payl
 
       if(includes(error.message, ['Rate limit exceeded'])) {
         error.notFatal = true;
-        error.backoffDelay = 2500;
-      }
-
-      if(nonMutating && includes(error.message, unknownResultErrors)) {
-        // this call only tried to retrieve data, safe to redo
-        error.notFatal = true;
-      }
-
-      if(funcName === 'addOrder' && includes(error.message, unknownResultErrors)) {
-
-        const { tradeType, amount, price } = payload;
-
-        return setTimeout(() => {
-          this.getRawOpenOrders((err2, orders) => {
-            if(err2) {
-              console.log('err2', err2);
-              return callback(err2);
-            }
-
-            _.each(orders, (o, id) => {
-              o.id = id;
-            });
-
-            const order = _.find(orders, o => {
-              if(o.descr.type !== tradeType) {
-                return false;
-              }
-
-              const ts = moment.unix((o.opentm + '').split('.')[0])
-              if(moment().diff(ts, 'm') > 10) {
-                return false;
-              }
-
-              // string vs float
-              if(+o.descr.price != price) {
-                return false;
-              }
-
-              // string vs float
-              if(o.vol != amount) {
-                return false;
-              }
-
-              return true;
-            });
-
-            if(!order) {
-              console.log('broken add order, appears not created:', {payload, orders: JSON.stringify(orders)});
-              return this.addOrder(tradeType, amount, price, callback);
-            }
-
-            return callback(undefined, { catched: true, id: order.id });
-          });
-        }, 5000);
-      }
-
-      if(funcName === 'cancelOrder' && includes(error.message, unknownResultErrors)) {
-        console.log('broken cancel');
-
-        return setTimeout(() => {
-          const handle = (err2, data) => {
-            if(err2) {
-              console.log('err2', err2);
-              return callback(err2);
-            }
-
-            const order = _.get(data, `result["${payload}"]`);
-
-            if(!_.isObject(order)) {
-              console.log('refetched broken cancel, cannot find order...', data);
-              throw 'a';
-            }
-
-            console.log(order);
-
-            if(order.status !== 'canceled') {
-              console.log(new Date, 'it still exists, retrying cancel');
-              return this.cancelOrder(payload, callback);
-            }
-
-            console.log(new Date, 'it was canceled');
-            return callback(undefined, true, { catched: true, filled: parseFloat(order.vol_exec) });
-
-          };
-
-          const reqData = {txid: payload};
-
-          const fetch = cb => this.kraken.api('QueryOrders', reqData, this.handleResponse('checkOrder', cb, true));
-          retry(null, fetch, handle);
-        }, 5000);
+        error.backoffDelay = 1000;
       }
 
       return callback(error);
@@ -212,7 +110,7 @@ Trader.prototype.getTrades = function(since, callback, descending) {
     reqData.since = startTs * 1000000;
   }
 
-  const fetch = cb => this.kraken.api('Trades', reqData, this.handleResponse('getTrades', cb, true));
+  const fetch = cb => this.kraken.api('Trades', reqData, this.handleResponse('getTrades', cb));
   retry(null, fetch, handle);
 };
 
@@ -220,8 +118,8 @@ Trader.prototype.getPortfolio = function(callback) {
   const handle = (err, data) => {
     if(err) return callback(err);
 
-    let assetAmount = parseFloat( data.result[this.market.prefixed[1]] );
-    let currencyAmount = parseFloat( data.result[this.market.prefixed[0]] );
+    const assetAmount = parseFloat( data.result[this.market.prefixed[1]] );
+    const currencyAmount = parseFloat( data.result[this.market.prefixed[0]] );
 
     if(!_.isNumber(assetAmount) || _.isNaN(assetAmount)) {
       console.log(`Kraken did not return portfolio for ${this.asset}, assuming 0.`);
@@ -241,7 +139,7 @@ Trader.prototype.getPortfolio = function(callback) {
     return callback(undefined, portfolio);
   };
 
-  const fetch = cb => this.kraken.api('Balance', {}, this.handleResponse('getPortfolio', cb, true));
+  const fetch = cb => this.kraken.api('Balance', {}, this.handleResponse('getPortfolio', cb));
   retry(null, fetch, handle);
 };
 
@@ -266,7 +164,7 @@ Trader.prototype.getTicker = function(callback) {
   };
 
   const reqData = {pair: this.pair}
-  const fetch = cb => this.kraken.api('Ticker', reqData, this.handleResponse('getTicker', cb, true));
+  const fetch = cb => this.kraken.api('Ticker', reqData, this.handleResponse('getTicker', cb));
   retry(null, fetch, handle);
 };
 
@@ -275,29 +173,16 @@ Trader.prototype.roundAmount = function(amount) {
 };
 
 Trader.prototype.roundPrice = function(amount) {
-  return scientificToDecimal(_.round(amount, this.market.pricePrecision));
+  return _.round(amount, this.market.pricePrecision);
 };
 
 Trader.prototype.addOrder = function(tradeType, amount, price, callback) {
-  price = this.roundPrice(price); // only round price, not amount
+  price = this.roundAmount(price); // only round price, not amount
 
   const handle = (err, data) => {
-    if(err) {
-      return callback(err);
-    }
+    if(err) return callback(err);
 
-    let txid;
-
-    if(data.catched) {
-      // handled timeout, but order was created
-      txid = data.id;
-    } else if(_.isString(data)) {
-      // handled timeout, order was NOT created
-      txid = data;
-    } else {
-      // normal flow
-      txid = data.result.txid[0];
-    }
+    const txid = data.result.txid[0];
 
     callback(undefined, txid);
   };
@@ -310,7 +195,7 @@ Trader.prototype.addOrder = function(tradeType, amount, price, callback) {
     volume: amount
   };
 
-  const fetch = cb => this.kraken.api('AddOrder', reqData, this.handleResponse('addOrder', cb, false, { tradeType, amount, price }));
+  const fetch = cb => this.kraken.api('AddOrder', reqData, this.handleResponse('addOrder', cb));
   retry(null, fetch, handle);
 };
 
@@ -352,17 +237,12 @@ Trader.prototype.getOrder = function(order, callback) {
     //     misc: '',
     //     oflags: 'fciq' } } }
 
-    callback(undefined, {
-      price,
-      amount,
-      date,
-      feePercent: 0.16 // default for now
-    });
+    callback(undefined, {price, amount, date});
   };
 
   const reqData = {txid: order};
 
-  const fetch = cb => this.kraken.api('QueryOrders', reqData, this.handleResponse('getOrder', cb, true));
+  const fetch = cb => this.kraken.api('QueryOrders', reqData, this.handleResponse('getOrder', cb));
   retry(null, fetch, handle);
 }
 
@@ -381,7 +261,7 @@ Trader.prototype.checkOrder = function(order, callback) {
 
   const reqData = {txid: order};
 
-  const fetch = cb => this.kraken.api('QueryOrders', reqData, this.handleResponse('checkOrder', cb, true));
+  const fetch = cb => this.kraken.api('QueryOrders', reqData, this.handleResponse('checkOrder', cb));
   retry(null, fetch, handle);
 };
 
@@ -391,66 +271,19 @@ Trader.prototype.cancelOrder = function(order, callback) {
   const handle = (err, data) => {
     if(err) {
       if(err.message.includes('Unknown order')) {
-        return callback(undefined, true);
-      }
-
-      // catch race condition:
-      // if we cancel, that request times out
-      // we recheck: it's live BUT then the
-      // timeout request goes through nonetheless
-      // (only times out behind cloudflare)
-      if(err.message.includes('Invalid order')) {
+        console.log('[kraken] unable to cancel order, it did not exist anymore', order);
         return callback(undefined, true);
       }
 
       return callback(err)
-    }
-
-    if(data.filled) {
-      callback(undefined, false, data);
     }
 
     callback(undefined, false);
   }
 
-  const fetch = cb => this.kraken.api('CancelOrder', reqData, this.handleResponse('cancelOrder', cb, false, order));
+  const fetch = cb => this.kraken.api('CancelOrder', reqData, this.handleResponse('cancelOrder', cb));
   retry(null, fetch, handle);
 };
-
-
-Trader.prototype.getRawOpenOrders = function(callback) {
-  const handle = (err, data) => {
-    if(err) {
-      return callback(err)
-    }
-
-    callback(undefined, data.result.open);
-  }
-
-  const fetch = cb => this.kraken.api('OpenOrders', {}, this.handleResponse('getOpenOrders', cb, true));
-  retry(null, fetch, handle);
-}
-
-Trader.prototype.getOpenOrders = function(callback) {
-
-  this.getRawOpenOrders((err, allOrders) => {
-    if(err) {
-      console.log(err);
-
-      return callback(err)
-    }
-
-    const orders = [];
-
-    _.each(allOrders, (o, id) => {
-      if(o.descr.pair === this.pair) {
-        orders.push(id);
-      }
-    });
-
-    callback(undefined, orders);
-  });
-}
 
 Trader.getCapabilities = function () {
   return {

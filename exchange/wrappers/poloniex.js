@@ -42,10 +42,7 @@ const recoverableErrors = [
   'Please try again in a few minutes.',
   'Nonce must be greater than',
   'Internal error. Please try again.',
-  'Connection timed out. Please try again.',
-  // getaddrinfo EAI_AGAIN poloniex.com poloniex.com:443
-  'EAI_AGAIN',
-  'ENETUNREACH'
+  'Connection timed out. Please try again.'
 ];
 
 // errors that might mean
@@ -123,7 +120,7 @@ Trader.prototype.processResponse = function(next, fn, payload) {
         // it might be cancelled
         else if(includes(error.message, unknownResultErrors)) {
           setTimeout(() => {
-            this.getRawOpenOrders((err, orders) => {
+            this.getOpenOrders((err, orders) => {
               if(err) {
                 return next(err);
               }
@@ -205,24 +202,12 @@ Trader.prototype.findLastOrder = function(since, side, callback) {
     callback(undefined, order);
   };
 
-  this.getRawOpenOrders(handle);
-}
-
-Trader.prototype.getRawOpenOrders = function(callback) {
-  const fetch = next => this.poloniex.returnOpenOrders(this.currency, this.asset, this.processResponse(next));
-  retry(null, fetch, callback);
+  this.getOpenOrders(handle);
 }
 
 Trader.prototype.getOpenOrders = function(callback) {
-  this.getRawOpenOrders((err, orders) => {
-    if(err) {
-      return callback(err);
-    }
-
-    const ids = orders.map(o => o.orderNumber);
-
-    return callback(undefined, ids);
-  })
+  const fetch = next => this.poloniex.returnOpenOrders(this.currency, this.asset, this.processResponse(next));
+  retry(null, fetch, callback);
 }
 
 Trader.prototype.getPortfolio = function(callback) {

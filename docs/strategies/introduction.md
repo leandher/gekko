@@ -4,11 +4,7 @@ Gekko uses [technical analysis indicators](http://www.investopedia.com/articles/
 
 This investment advice is going to be either **long** or **short**. Long indicates that Gekko the asset should be bought and short indicates that it should be sold.
 
-If you are familiar with javascript you can easily create your own strategies. Here is a video explaining everything you need to know:
-
-[![youtube video on how to create gekko strategies](https://gekko.wizb.it/_static/create-strat-vid.jpg)](https://www.youtube.com/watch?v=6-74ZhrG0BE)
-
-Below you can find simple and exemplary strategies that come with Gekko. These strategies come with Gekko and serve as examples.
+Below you can find simple and exemplary strategies that come with Gekko. These strategies come with Gekko and serve as examples, **for anything that involves real money we recommend you [write your own](./creating_a_strategy.md).**
 
 Gekko currently comes with the following example strategies:
 

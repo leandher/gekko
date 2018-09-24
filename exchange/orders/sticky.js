@@ -43,13 +43,9 @@ class StickyOrder extends BaseOrder {
       return false;
     }
 
-    console.log(new Date, 'sticky create', side);
-
     this.side = side;
 
     this.amount = this.roundAmount(rawAmount);
-
-    this.initialLimit = params.initialLimit;
 
     if(side === 'buy') {
       if(params.limit)
@@ -70,19 +66,9 @@ class StickyOrder extends BaseOrder {
 
     this.outbid = params.outbid && _.isFunction(this.outbidPrice);
 
-    if(this.data && this.data.ticker) {
-      this.price = this.calculatePrice(this.data.ticker);
-      this.createOrder();
-    } else {
-      this.api.getTicker((err, ticker) => {
-        if(this.handleError(err)) {
-          return;
-        }
+    this.price = this.calculatePrice(this.data.ticker);
 
-        this.price = this.calculatePrice(ticker);
-        this.createOrder();
-      });
-    }
+    this.createOrder();
 
     return this;
   }
@@ -91,13 +77,7 @@ class StickyOrder extends BaseOrder {
 
     const r = this.roundPrice;
 
-    if(this.initialLimit && !this.id) {
-      console.log('passing initial limit of:', this.limit);
-      return r(this.limit);
-    }
-
     if(this.side === 'buy') {
-
       if(ticker.bid >= this.limit) {
         return r(this.limit);
       }
@@ -227,34 +207,24 @@ class StickyOrder extends BaseOrder {
     this.status = states.OPEN;
     this.emitStatus();
 
-    this.scheduleNextCheck();
-  }
-
-  scheduleNextCheck() {
-
     // remove lock
     this.sticking = false;
 
     // check whether we had an action pending
-    if(this.cancelling) {
+    if(this.cancelling)
       return this.cancel();
-    }
 
-    if(this.movingLimit) {
+    if(this.movingLimit)
       return this.moveLimit();
-    }
 
-    if(this.movingAmount) {
+    if(this.movingAmount)
       return this.moveAmount();
-    }
 
     // register check
     this.timeout = setTimeout(this.checkOrder, this.checkInterval);
-
   }
 
   checkOrder() {
-
     if(this.completed || this.completing) {
       return console.log(new Date, 'checkOrder called on completed/completing order..', this.completed, this.completing);
     }
@@ -275,7 +245,8 @@ class StickyOrder extends BaseOrder {
         // if we are already at limit we dont care where the top is
         // note: might be string VS float
         if(this.price == this.limit) {
-          this.scheduleNextCheck();
+          this.timeout = setTimeout(this.checkOrder, this.checkInterval);
+          this.sticking = false;
           return;
         }
 
@@ -293,7 +264,8 @@ class StickyOrder extends BaseOrder {
             return this.move(this.calculatePrice(ticker));
           }
 
-          this.scheduleNextCheck();
+          this.timeout = setTimeout(this.checkOrder, this.checkInterval);
+          this.sticking = false;
         });
 
         return;
@@ -413,10 +385,6 @@ class StickyOrder extends BaseOrder {
       return false;
     }
 
-    if(this.cancelling) {
-      return false;
-    }
-
     if(
       this.status === states.INITIALIZING ||
       this.status === states.SUBMITTED ||
@@ -441,7 +409,7 @@ class StickyOrder extends BaseOrder {
       this.sticking = true;
       this.move(this.limit);
     } else {
-      this.scheduleNextCheck();
+      this.timeout = setTimeout(this.checkOrder, this.checkInterval);
     }
 
     return true;
@@ -524,7 +492,6 @@ class StickyOrder extends BaseOrder {
 
     this.completing = true;
     clearTimeout(this.timeout);
-
     this.api.cancelOrder(this.id, (err, filled, data) => {
       if(this.handleError(err)) {
         return;
