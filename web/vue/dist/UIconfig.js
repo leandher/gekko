@@ -4,23 +4,37 @@
 // This config is used by both the frontend as well as the web server.
 // see https://gekko.wizb.it/docs/installation/installing_gekko_on_a_server.html#Configuring-Gekko
 
+// Prod
 const CONFIG = {
   headless: true,
   api: {
     host: '0.0.0.0',
-    port:
-      typeof process !== 'undefined' &&
-      process !== undefined &&
-      process.env.PORT
-        ? process.env.PORT
-        : 8080,
-    timeout: 120000, // 2 minutes
+    port: process.env.PORT || 3000,
   },
   ui: {
-    ssl: true,
-    host: 'https://young-harbor-76195.herokuapp.com',
-    port: '443',
+    ssl: false,
+    host: 'young-harbor-76195.herokuapp.com',
+    port: 3000,
     path: '/',
   },
   adapter: 'sqlite',
 };
+
+// Dev
+// const CONFIG = {
+//   headless: false,
+//   api: {
+//     host: '127.0.0.1',
+//     port: 3000,
+//     timeout: 120000, // 2 minutes
+//   },
+//   ui: {
+//     ssl: false,
+//     host: 'localhost',
+//     port: 3000,
+//     path: '/',
+//   },
+//   adapter: 'sqlite',
+// };
+if (typeof window === 'undefined') module.exports = CONFIG;
+else window.CONFIG = CONFIG;
