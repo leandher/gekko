@@ -13,7 +13,7 @@
     "test": "./node_modules/.bin/mocha test/*.js --recursive test -u tdd --reporter spec",
     "start-dev": "node ./gekko --config config.js --ui",
     "start-prod": "node gekko --ui",
-    "start": "npm install && cd ./exchange && npm install && cd .. && npm run start-prod"
+    "start": "npm install && cd ./exchange && npm install && cd .. && npm run start-dev"
   },
   "author": "Mike van Rossum <mike@mvr.me>",
   "dependencies": {
