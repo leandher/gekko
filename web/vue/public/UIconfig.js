@@ -8,18 +8,12 @@ const CONFIG = {
   headless: true,
   api: {
     host: '0.0.0.0',
-    port:
-      typeof process !== 'undefined' &&
-      process !== undefined &&
-      process.env.PORT
-        ? process.env.PORT
-        : 8080,
-    timeout: 120000, // 2 minutes
+    port: process.env.PORT || 3000,
   },
   ui: {
-    ssl: true,
+    ssl: false,
     host: 'young-harbor-76195.herokuapp.com',
-    port: '443',
+    port: 3000,
     path: '/',
   },
   adapter: 'sqlite',
