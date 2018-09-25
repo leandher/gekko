@@ -9,12 +9,12 @@ const CONFIG = {
   headless: true,
   api: {
     host: '0.0.0.0',
-    port: process.env.PORT || 3000,
+    port: 3000,
   },
   ui: {
     ssl: false,
     host: 'young-harbor-76195.herokuapp.com',
-    port: 3000,
+    port: 80,
     path: '/',
   },
   adapter: 'sqlite',
