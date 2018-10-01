@@ -108,6 +108,7 @@ Trader.prototype.handleResponse = function(funcName, callback) {
       }
 
       if(funcName === 'cancelOrder' && error.message.includes('UNKNOWN_ORDER')) {
+        console.log(new Date, 'cancelOrder', 'UNKNOWN_ORDER');
         // order got filled in full before it could be
         // cancelled, meaning it was NOT cancelled.
         return callback(false, {filled: true});
@@ -120,6 +121,7 @@ Trader.prototype.handleResponse = function(funcName, callback) {
       }
 
       if(funcName === 'addOrder' && error.message.includes('Account has insufficient balance')) {
+        console.log(new Date, 'insufficientFunds');
         error.type = 'insufficientFunds';
       }
 
